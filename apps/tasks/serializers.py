@@ -4,52 +4,51 @@ from apps.tasks.models import Task, Comment
 from apps.users.serializers import UserModelSerializer
 
 
-class CreateTaskSerializer(serializers.ModelSerializer):
+class CommentSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Comment
+        fields = ('id', 'text', 'posted_by')
+        extra_kwargs = {
+            'posted_by': {'read_only': True},
+        }
+
+
+class TaskSerializer(serializers.ModelSerializer):
+
 
     class Meta:
         model = Task
-        fields = ('id', 'title', 'description',)
+        fields = ('id', 'title', 'description', 'status', 'created_by', 'assigned_to')
+        extra_kwargs = {
+            'status': {'read_only': True},
+            'created_by': {'read_only': True},
+            'assigned_to': {'read_only': True},
+        }
 
 
-class ListTaskSerializer(serializers.ModelSerializer):
+class TaskRetrieveSerializer(TaskSerializer):
+    created_by = UserModelSerializer()
+    assigned_to = UserModelSerializer()
+    commented_task_set = CommentSerializer(many=True, read_only=True)
 
-    class Meta:
-        model = Task
-        fields = ('id', 'title',)
-
-
-class TaskItemSerializer(serializers.ModelSerializer):
-    owner = UserModelSerializer()
-
-    class Meta:
-        model = Task
-        fields = ('id', 'title', 'description', 'status', 'owner',)
+    class Meta(TaskSerializer.Meta):
+        fields = ('id', 'title', 'description', 'status', 'created_by', 'assigned_to', 'commented_task_set')
 
 
 class AssignTaskSerializer(serializers.ModelSerializer):
-    user_id = serializers.IntegerField()
 
     class Meta:
-        model=Task
-        fields = ('user_id',)
+        model = Task
+        fields = ('assigned_to',)
 
 
-class CommentModelSerializer(serializers.ModelSerializer):
+class ReadOnlyTaskSerializer(TaskSerializer):
+    def get_fields(self):
+        fields = super().get_fields()
+        for field in fields.values():
+            field.read_only = True
+        return fields
 
-    class Meta:
-        model=Comment
-        fields = ('id', 'text',)
-
-
-class CreateCommentSerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model=Comment
-        fields = ('text',)
-
-
-class ListCommentSerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model=Comment
-        fields = ('id', 'text',)
+    class Meta(TaskSerializer.Meta):
+        pass

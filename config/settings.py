@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "rest_framework.authtoken",
     "corsheaders",
     "drf_yasg",
+    "django_filters",
     # Local apps
     "apps.common",
     "apps.users",
@@ -102,11 +103,13 @@ CORS_ALLOW_HEADERS = (
 REST_FRAMEWORK = {
     "DATETIME_FORMAT": "%Y-%m-%dT%H:%M:%SZ",
     "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework.authentication.SessionAuthentication",
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     "DEFAULT_RENDERER_CLASSES": ("rest_framework.renderers.JSONRenderer",),
     "EXCEPTION_HANDLER": "apps.common.exceptions.custom_exception_handler",
+    'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
 }
 
 SWAGGER_SETTINGS = {
