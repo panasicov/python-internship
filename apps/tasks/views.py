@@ -1,45 +1,52 @@
 from django.core.mail import send_mail
+from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from django.conf import settings
 from rest_framework import filters
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.viewsets import ModelViewSet
 from rest_framework.decorators import action
+from drf_util.views import BaseModelViewSet
 
 from apps.tasks.serializers import (
-    ReadOnlyTaskSerializer,
-    TaskRetrieveSerializer,
     TaskSerializer,
+    TaskRetrieveSerializer,
     AssignTaskSerializer,
     CommentSerializer,
+    ReadOnlyTaskSerializer,
 )
 from apps.tasks.models import Task
 
 
-class TaskViewSet(ModelViewSet):
+class TaskViewSet(BaseModelViewSet):
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
+    serializer_retrieve_class = TaskRetrieveSerializer
+    serializer_by_action = {
+        'assign': AssignTaskSerializer,
+        'complete': ReadOnlyTaskSerializer,
+        'comment': CommentSerializer,
+    }
     permission_classes = (IsAuthenticated,)
     filter_backends = (DjangoFilterBackend, filters.SearchFilter)
     filterset_fields = ('status',)
     search_fields = ('title',)
 
-    def get_serializer(self, *args, **kwargs):
-        if self.action == 'retrieve':
-            return TaskRetrieveSerializer(*args, **kwargs)
-        return super().get_serializer(*args, **kwargs)
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        if self.action in ('me', 'comment'):
+            return self.queryset.filter(created_by=self.request.user)
+        return queryset
 
-    def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+    def perform_create(self, serializer, **kwargs):
+        instance = serializer.save(created_by=self.request.user, **kwargs)
+        return instance
 
-    @action(methods=['GET'], detail=False, permission_classes=[IsAuthenticated])
+    @action(methods=['GET'], detail=False)
     def me(self, request, *args, **kwargs):
-        queryset = self.filter_queryset(self.get_queryset().filter(assigned_to=request.user))
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
+        return super().list(request, *args, **kwargs)
 
-    @action(methods=['POST'], detail=True, permission_classes=[IsAuthenticated], serializer_class=AssignTaskSerializer)
+    @action(methods=['POST'], detail=True)
     def assign(self, request, *args, **kwargs):
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=self.request.data)
@@ -55,7 +62,7 @@ class TaskViewSet(ModelViewSet):
 
         return Response(serializer.data)
 
-    @action(methods=['PATCH'], detail=True, permission_classes=[IsAuthenticated], serializer_class=ReadOnlyTaskSerializer)
+    @action(methods=['PATCH'], detail=True)
     def complete(self, request, *args, **kwargs):
         instance = self.get_object()
         instance.status = True
@@ -72,11 +79,12 @@ class TaskViewSet(ModelViewSet):
 
         return Response(serializer.data)
 
-    @action(methods=['POST'], detail=True, permission_classes=[IsAuthenticated], serializer_class=CommentSerializer)
-    def comment(self, request, *args, **kwargs):
+    @action(methods=['POST'], detail=True)
+    def comment(self, request, pk, *args, **kwargs):
         serializer = self.get_serializer(data=self.request.data)
         serializer.is_valid(raise_exception=True)
-        comment = serializer.save(posted_by=request.user, task_id=self.kwargs['pk'])
+        instance = get_object_or_404(self.get_queryset(), pk=pk)
+        comment = serializer.save(posted_by=request.user, task=instance)
 
         send_mail(
             'New task comment',

@@ -5,12 +5,12 @@ from rest_framework import serializers
 User = get_user_model()
 
 
-class RegisterUserSerializer(serializers.ModelSerializer):
+class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
 
     class Meta:
         model = User
-        fields = ('first_name', 'last_name', 'email', 'password',)
+        fields = ('id', 'first_name', 'last_name', 'email', 'password',)
 
 
 class UserListSerializer(serializers.ModelSerializer):
@@ -22,10 +22,3 @@ class UserListSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id', 'full_name',)
-
-
-class UserModelSerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = User
-        fields = ('id', 'first_name', 'last_name', 'email',)
