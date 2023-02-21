@@ -1,3 +1,7 @@
+from django.forms import ValidationError
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime
+from django.db.models import Sum, F
 from django.core.mail import send_mail
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
@@ -14,8 +18,11 @@ from apps.tasks.serializers import (
     AssignTaskSerializer,
     CommentSerializer,
     ReadOnlyTaskSerializer,
+    TimerSerializer,
+    ReadOnlyTimerSerializer,
 )
 from apps.tasks.models import Task
+from apps.users.serializers import UserSerializer
 
 
 class TaskViewSet(BaseModelViewSet):
@@ -26,15 +33,20 @@ class TaskViewSet(BaseModelViewSet):
         'assign': AssignTaskSerializer,
         'complete': ReadOnlyTaskSerializer,
         'comment': CommentSerializer,
+        'create_timer': TimerSerializer,
+        'start_timer': ReadOnlyTimerSerializer,
+        'stop_timer': ReadOnlyTimerSerializer,
+        'user_timer': UserSerializer,
     }
     permission_classes = (IsAuthenticated,)
     filter_backends = (DjangoFilterBackend, filters.SearchFilter)
     filterset_fields = ('status',)
     search_fields = ('title',)
+    autocomplete_related = False
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        if self.action in ('me', 'comment'):
+        if self.action in ('me',):
             return self.queryset.filter(created_by=self.request.user)
         return queryset
 
@@ -93,4 +105,45 @@ class TaskViewSet(BaseModelViewSet):
             [comment.task.created_by.email,]
         )
 
+        return Response(serializer.data)
+
+    @action(methods=['GET'], detail=False, url_path='timer/greatest/month')
+    def timer(self, request, *args, **kwargs):
+        last_month_datetime = timezone.now() - timezone.timedelta(days=30)
+        instance = self.get_queryset()
+        instance = instance.filter(task_timer_set__start__gt=last_month_datetime).annotate(
+            total_time=Sum(F('task_timer_set__stop') - F('task_timer_set__start'))
+        ).order_by('-total_time')[:20]
+        serializer = self.get_serializer(instance, many=True)
+        return Response(serializer.data)
+
+    @action(methods=['POST'], detail=True, url_path='timer')
+    def create_timer(self, request, pk, *args, **kwargs):
+        instance = get_object_or_404(self.get_queryset(), pk=pk)
+        serializer = self.get_serializer(data=self.request.data)
+        serializer.is_valid(raise_exception=True)
+        start_datetime = parse_datetime(str(serializer.validated_data.get('start')))
+        stop_datetime = start_datetime + timezone.timedelta(minutes=serializer.validated_data.pop('duration'))
+        serializer.save(stop=stop_datetime, created_by=request.user, task=instance)
+        return Response(serializer.data)
+
+    @action(methods=['POST'], detail=True, url_path='timer/start')
+    def start_timer(self, request, pk, *args, **kwargs):
+        serializer = self.get_serializer(data=self.request.data)
+        serializer.is_valid(raise_exception=True)
+        instance = get_object_or_404(self.get_queryset(), pk=pk)
+        serializer.save(start=timezone.now(), created_by=request.user, task=instance)
+        return Response(serializer.data)
+
+    @action(methods=['PATCH'], detail=True, url_path='timer/stop')
+    def stop_timer(self, request, pk, *args, **kwargs):
+        instance = get_object_or_404(self.get_queryset(), pk=pk)
+        last_task_timer = instance.task_timer_set.all().last()
+        if not last_task_timer or last_task_timer.stop:
+            raise ValidationError('Cannot stop timer before starting the new one.')
+
+        last_task_timer.stop = timezone.now()
+        last_task_timer.save()
+
+        serializer = self.get_serializer(last_task_timer)
         return Response(serializer.data)

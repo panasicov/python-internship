@@ -1,6 +1,6 @@
 from django.contrib.auth import get_user_model
 from rest_framework.generics import CreateAPIView, ListAPIView
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -35,3 +35,13 @@ class UserListView(ListAPIView):
     queryset = User.objects.only('first_name', 'last_name')
     serializer_class = UserListSerializer
     permission_classes = (AllowAny,)
+
+
+class UserTimerView(ListAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = (IsAuthenticated,)
+    pagination_class = None
+
+    def get_queryset(self):
+        return self.queryset.filter(pk=self.request.user.pk)

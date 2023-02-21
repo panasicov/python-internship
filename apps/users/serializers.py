@@ -7,10 +7,14 @@ User = get_user_model()
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
+    time_sum = serializers.SerializerMethodField()
+
+    def get_time_sum(self, obj):
+        return sum([timer.duration for timer in obj.created_timer_set.all() if timer.duration])
 
     class Meta:
         model = User
-        fields = ('id', 'first_name', 'last_name', 'email', 'password',)
+        fields = ('id', 'first_name', 'last_name', 'email', 'password', 'time_sum')
 
 
 class UserListSerializer(serializers.ModelSerializer):
