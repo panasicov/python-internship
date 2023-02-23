@@ -1,6 +1,6 @@
 from django.db import models
 from django.contrib.auth import get_user_model
-from django.forms import ValidationError
+from django.utils import timezone
 
 
 User = get_user_model()
@@ -9,32 +9,23 @@ User = get_user_model()
 class Task(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField()
-    status = models.BooleanField(default=False)
-    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='created_task_set')
+    is_completed = models.BooleanField(default=False)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_task_set')
     assigned_to = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='assigned_task_set')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
 class Comment(models.Model):
     text = models.TextField()
-    task = models.ForeignKey(Task, null=True, blank=True, on_delete=models.SET_NULL, related_name='commented_task_set')
-    posted_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='posted_comment_set')
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='commented_task_set')
+    posted_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='posted_comment_set')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
-class Timer(models.Model):
-    start = models.DateTimeField(null=True, blank=True)
+class TimeLog(models.Model):
+    start = models.DateTimeField(default=timezone.now)
     stop = models.DateTimeField(null=True, blank=True)
-    task = models.ForeignKey(Task, null=True, blank=True, on_delete=models.SET_NULL, related_name='task_timer_set')
-    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='created_timer_set')
-
-    @property
-    def duration(self):
-        if self.stop and self.start:
-            return (self.stop - self.start).total_seconds() / 60
-
-    def clean(self):
-        if self.pk is None:
-            last_timer = Timer.objects.filter(task=self.task).order_by('id').last()
-            if last_timer and self.start and last_timer.stop is None:
-                raise ValidationError('Cannot start a new timer before stopping the last one.')
-
-    def save(self, *args, **kwargs):
-        self.full_clean()
-        return super(Timer, self).save(*args, **kwargs)
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='task_timelog_set')
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_timelog_set')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)

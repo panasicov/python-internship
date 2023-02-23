@@ -1,5 +1,8 @@
 from django.contrib.auth import get_user_model
-from rest_framework.generics import CreateAPIView, ListAPIView
+from django.db.models import Sum, F, Q
+from django.utils import timezone
+from django.db.models.functions import Coalesce
+from rest_framework.generics import CreateAPIView, ListAPIView, RetrieveAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -37,11 +40,13 @@ class UserListView(ListAPIView):
     permission_classes = (AllowAny,)
 
 
-class UserTimerView(ListAPIView):
-    queryset = User.objects.all()
+class UserMonthTimeLogView(RetrieveAPIView):
     serializer_class = UserSerializer
     permission_classes = (IsAuthenticated,)
-    pagination_class = None
 
-    def get_queryset(self):
-        return self.queryset.filter(pk=self.request.user.pk)
+    def get_object(self):
+        return User.objects.filter(pk=self.request.user.pk).annotate(
+            time_sum=Sum(
+                Coalesce('created_timelog_set__stop', timezone.now()) - F('created_timelog_set__start'),
+            filter=Q(created_timelog_set__start__gte=timezone.now() - timezone.timedelta(days=30)))
+        ).first()

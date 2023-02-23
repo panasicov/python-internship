@@ -1,9 +1,9 @@
 from django.forms import ValidationError
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
-from django.db.models import Sum, F
+from django.db.models import Sum, F, Q, ExpressionWrapper, DurationField
+from django.db.models.functions import Coalesce
 from django.core.mail import send_mail
-from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from django.conf import settings
 from rest_framework import filters
@@ -18,11 +18,12 @@ from apps.tasks.serializers import (
     AssignTaskSerializer,
     CommentSerializer,
     ReadOnlyTaskSerializer,
-    TimerSerializer,
-    ReadOnlyTimerSerializer,
+    TimeLogSerializer,
+    ReadOnlyTimeLogSerializer,
 )
 from apps.tasks.models import Task
 from apps.users.serializers import UserSerializer
+from apps.tasks.permissions import CanStartTimeLog, CanStopTimeLog
 
 
 class TaskViewSet(BaseModelViewSet):
@@ -33,14 +34,18 @@ class TaskViewSet(BaseModelViewSet):
         'assign': AssignTaskSerializer,
         'complete': ReadOnlyTaskSerializer,
         'comment': CommentSerializer,
-        'create_timer': TimerSerializer,
-        'start_timer': ReadOnlyTimerSerializer,
-        'stop_timer': ReadOnlyTimerSerializer,
-        'user_timer': UserSerializer,
+        'create_timelog': TimeLogSerializer,
+        'start_timelog': ReadOnlyTimeLogSerializer,
+        'stop_timelog': ReadOnlyTimeLogSerializer,
+        'user_timelog': UserSerializer,
     }
     permission_classes = (IsAuthenticated,)
+    permission_classes_by_action = {
+        'start_timelog': [IsAuthenticated, CanStartTimeLog],
+        'stop_timelog': [IsAuthenticated, CanStopTimeLog],
+    }
     filter_backends = (DjangoFilterBackend, filters.SearchFilter)
-    filterset_fields = ('status',)
+    filterset_fields = ('is_completed',)
     search_fields = ('title',)
     autocomplete_related = False
 
@@ -51,8 +56,7 @@ class TaskViewSet(BaseModelViewSet):
         return queryset
 
     def perform_create(self, serializer, **kwargs):
-        instance = serializer.save(created_by=self.request.user, **kwargs)
-        return instance
+        return serializer.save(created_by=self.request.user, **kwargs)
 
     @action(methods=['GET'], detail=False)
     def me(self, request, *args, **kwargs):
@@ -77,7 +81,7 @@ class TaskViewSet(BaseModelViewSet):
     @action(methods=['PATCH'], detail=True)
     def complete(self, request, *args, **kwargs):
         instance = self.get_object()
-        instance.status = True
+        instance.is_completed = True
         instance.save()
         serializer = self.get_serializer(instance)
 
@@ -95,7 +99,7 @@ class TaskViewSet(BaseModelViewSet):
     def comment(self, request, pk, *args, **kwargs):
         serializer = self.get_serializer(data=self.request.data)
         serializer.is_valid(raise_exception=True)
-        instance = get_object_or_404(self.get_queryset(), pk=pk)
+        instance = self.get_object()
         comment = serializer.save(posted_by=request.user, task=instance)
 
         send_mail(
@@ -107,43 +111,47 @@ class TaskViewSet(BaseModelViewSet):
 
         return Response(serializer.data)
 
-    @action(methods=['GET'], detail=False, url_path='timer/greatest/month')
-    def timer(self, request, *args, **kwargs):
+    @action(methods=['GET'], detail=False, url_path='timelog/greatest/month')
+    def timelog(self, request, *args, **kwargs):
         last_month_datetime = timezone.now() - timezone.timedelta(days=30)
-        instance = self.get_queryset()
-        instance = instance.filter(task_timer_set__start__gt=last_month_datetime).annotate(
-            total_time=Sum(F('task_timer_set__stop') - F('task_timer_set__start'))
-        ).order_by('-total_time')[:20]
+        instance = self.get_queryset().filter(task_timelog_set__start__gte=last_month_datetime).annotate(
+            duration_sum=Sum(
+                ExpressionWrapper(
+                    Coalesce('task_timelog_set__stop', timezone.now()) - F('task_timelog_set__start'),
+                    output_field=DurationField()
+                ),
+                filter=Q(
+                    task_timelog_set__start__gte=last_month_datetime
+                )
+            )
+        ).order_by('-duration_sum')
+
         serializer = self.get_serializer(instance, many=True)
         return Response(serializer.data)
 
-    @action(methods=['POST'], detail=True, url_path='timer')
-    def create_timer(self, request, pk, *args, **kwargs):
-        instance = get_object_or_404(self.get_queryset(), pk=pk)
+    @action(methods=['POST'], detail=True, url_path='timelog')
+    def create_timelog(self, request, pk, *args, **kwargs):
+        instance = self.get_object()
         serializer = self.get_serializer(data=self.request.data)
         serializer.is_valid(raise_exception=True)
         start_datetime = parse_datetime(str(serializer.validated_data.get('start')))
         stop_datetime = start_datetime + timezone.timedelta(minutes=serializer.validated_data.pop('duration'))
-        serializer.save(stop=stop_datetime, created_by=request.user, task=instance)
+        serializer.save(start=start_datetime, stop=stop_datetime, created_by=request.user, task=instance)
         return Response(serializer.data)
 
-    @action(methods=['POST'], detail=True, url_path='timer/start')
-    def start_timer(self, request, pk, *args, **kwargs):
+    @action(methods=['POST'], detail=True, url_path='timelog/start')
+    def start_timelog(self, request, pk, *args, **kwargs):
         serializer = self.get_serializer(data=self.request.data)
         serializer.is_valid(raise_exception=True)
-        instance = get_object_or_404(self.get_queryset(), pk=pk)
+        instance = self.get_object()
         serializer.save(start=timezone.now(), created_by=request.user, task=instance)
         return Response(serializer.data)
 
-    @action(methods=['PATCH'], detail=True, url_path='timer/stop')
-    def stop_timer(self, request, pk, *args, **kwargs):
-        instance = get_object_or_404(self.get_queryset(), pk=pk)
-        last_task_timer = instance.task_timer_set.all().last()
-        if not last_task_timer or last_task_timer.stop:
-            raise ValidationError('Cannot stop timer before starting the new one.')
-
-        last_task_timer.stop = timezone.now()
-        last_task_timer.save()
-
-        serializer = self.get_serializer(last_task_timer)
+    @action(methods=['PATCH'], detail=True, url_path='timelog/stop')
+    def stop_timelog(self, request, pk, *args, **kwargs):
+        instance = self.get_object()
+        last_task_timelog = instance.task_timelog_set.filter(created_by=request.user).last()
+        last_task_timelog.stop = timezone.now()
+        last_task_timelog.save()
+        serializer = self.get_serializer(last_task_timelog)
         return Response(serializer.data)
