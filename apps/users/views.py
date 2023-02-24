@@ -45,8 +45,10 @@ class UserMonthTimeLogView(RetrieveAPIView):
     permission_classes = (IsAuthenticated,)
 
     def get_object(self):
-        return User.objects.filter(pk=self.request.user.pk).annotate(
+        last_month_datetime = timezone.now() - timezone.timedelta(days=30)
+
+        return User.objects.filter(pk=self.request.user.pk).filter(created_timelog_set__start__gte=last_month_datetime).annotate(
             time_sum=Sum(
                 Coalesce('created_timelog_set__stop', timezone.now()) - F('created_timelog_set__start'),
-            filter=Q(created_timelog_set__start__gte=timezone.now() - timezone.timedelta(days=30)))
+            filter=Q(created_timelog_set__start__gte=last_month_datetime))
         ).first()

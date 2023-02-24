@@ -1,15 +1,26 @@
 [
   {
-    "model": "auth.user",
+    "model": "users.User",
     "pk": 1,
     "fields": {
-      "email": "user1@email.com",
+      "email": "user1@mail.com",
       "first_name": "first_name1",
       "last_name": "last_name1",
       "username": "username1",
       "is_superuser": false,
       "is_staff": false
     }
+  },
+  {
+    "model": "users.User",
+    "pk": 2,
+    "fields": {
+      "email": "user2@mail.com",
+      "first_name": "first_name2",
+      "last_name": "last_name2",
+      "username": "username2",
+      "is_superuser": false,
+      "is_staff": false
+    }
   }
 ]
-

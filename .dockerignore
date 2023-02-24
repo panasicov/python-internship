@@ -1,0 +1,8 @@
+.git/
+node_modules/
+
+.gitignore
+
+README.md
+
+*.log

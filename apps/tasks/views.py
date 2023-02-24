@@ -1,4 +1,3 @@
-from django.forms import ValidationError
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.db.models import Sum, F, Q, ExpressionWrapper, DurationField
@@ -10,6 +9,8 @@ from rest_framework import filters
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.decorators import action
+from django.views.decorators.cache import cache_page
+from django.utils.decorators import method_decorator
 from drf_util.views import BaseModelViewSet
 
 from apps.tasks.serializers import (
@@ -50,12 +51,14 @@ class TaskViewSet(BaseModelViewSet):
     autocomplete_related = False
 
     def get_queryset(self):
-        queryset = super().get_queryset()
+        queryset = super().get_queryset().order_by('id')
         if self.action in ('me',):
-            return self.queryset.filter(created_by=self.request.user)
+            return self.queryset.filter(assigned_to=self.request.user)
         return queryset
 
     def perform_create(self, serializer, **kwargs):
+        if self.action in ('create',):
+            return serializer.save(created_by=self.request.user, assigned_to=self.request.user, **kwargs)
         return serializer.save(created_by=self.request.user, **kwargs)
 
     @action(methods=['GET'], detail=False)
@@ -111,10 +114,14 @@ class TaskViewSet(BaseModelViewSet):
 
         return Response(serializer.data)
 
-    @action(methods=['GET'], detail=False, url_path='timelog/greatest/month')
-    def timelog(self, request, *args, **kwargs):
+    @method_decorator(cache_page(60))
+    @action(methods=['GET'], detail=False, url_path='timelog/me/greatest/month')
+    def me_timelog(self, request, *args, **kwargs):
         last_month_datetime = timezone.now() - timezone.timedelta(days=30)
-        instance = self.get_queryset().filter(task_timelog_set__start__gte=last_month_datetime).annotate(
+        instance = self.get_queryset().filter(
+                task_timelog_set__start__gte=last_month_datetime,
+                task_timelog_set__created_by=request.user
+            ).annotate(
             duration_sum=Sum(
                 ExpressionWrapper(
                     Coalesce('task_timelog_set__stop', timezone.now()) - F('task_timelog_set__start'),
@@ -124,7 +131,7 @@ class TaskViewSet(BaseModelViewSet):
                     task_timelog_set__start__gte=last_month_datetime
                 )
             )
-        ).order_by('-duration_sum')
+        ).order_by('-duration_sum')[:20]
 
         serializer = self.get_serializer(instance, many=True)
         return Response(serializer.data)
