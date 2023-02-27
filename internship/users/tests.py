@@ -1,19 +1,15 @@
 from django.contrib.auth import get_user_model
-from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
-from rest_framework.test import APIClient
+from rest_framework.test import APITestCase
 
 
 User = get_user_model()
 
 
-class USersTests(TestCase):
+class UsersTests(APITestCase):
     fixtures = ['users', 'tasks', 'comments', 'timelogs']
-
-    def setUp(self):
-        self.client = APIClient()
 
     def test_register_login(self):
         response = self.client.post(
