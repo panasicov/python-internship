@@ -1,13 +1,16 @@
 from django.contrib.auth import get_user_model
-from django.db.models import Sum, F, Q
-from django.utils import timezone
-from django.db.models.functions import Coalesce
-from rest_framework.generics import CreateAPIView, ListAPIView, RetrieveAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.generics import (
+    CreateAPIView, ListAPIView, RetrieveAPIView
+)
 
-from internship.users.serializers import UserListSerializer, UserSerializer
+from internship.users.serializers import (
+    UserListSerializer, UserSerializer,
+    UserMonthTimeSerializer
+)
+
 
 User = get_user_model()
 
@@ -38,15 +41,9 @@ class UserListView(ListAPIView):
     permission_classes = (AllowAny,)
 
 
-class UserMonthTimeLogView(RetrieveAPIView):
-    serializer_class = UserSerializer
+class UserMonthTimeView(RetrieveAPIView):
+    serializer_class = UserMonthTimeSerializer
     permission_classes = (IsAuthenticated,)
 
     def get_object(self):
-        last_month_datetime = timezone.now() - timezone.timedelta(days=30)
-
-        return User.objects.filter(pk=self.request.user.pk).filter(created_timelog_set__start__gte=last_month_datetime).annotate(
-            time_sum=Sum(
-                Coalesce('created_timelog_set__stop', timezone.now()) - F('created_timelog_set__start'),
-            filter=Q(created_timelog_set__start__gte=last_month_datetime))
-        ).first()
+        return self.request.user

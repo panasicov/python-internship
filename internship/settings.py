@@ -1,13 +1,21 @@
-from datetime import timedelta
+import os
 from pathlib import Path
+from django.utils.timezone import timedelta
+
+from sentry_sdk.integrations.django import DjangoIntegration
+import sentry_sdk
+from dotenv import load_dotenv
+
+
+load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-lq1f1qlwceldw3*tu6l=ev0#@-nc4hf0%)*96kz^*0s%7k_*7('
+SECRET_KEY = os.getenv('SECRET_KEY')
 
-DEBUG = True
+DEBUG = bool(os.getenv('DEBUG'))
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS').split(',')
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -22,6 +30,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "drf_yasg",
     "django_filters",
+    "debug_toolbar",
 
     "internship.common",
     "internship.users",
@@ -38,6 +47,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
     "corsheaders.middleware.CorsMiddleware",
+    "debug_toolbar.middleware.DebugToolbarMiddleware",
 
     "internship.common.middlewares.ApiMiddleware",
 ]
@@ -62,7 +72,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'internship.wsgi.application'
 
-CORS_ORIGIN_ALLOW_ALL = True
+CORS_ORIGIN_ALLOW_ALL = bool(os.getenv('CORS_ORIGIN_ALLOW_ALL'))
+CORS_ORIGIN_WHITELIST = os.getenv('CORS_ORIGIN_WHITELIST').split(',')
+
 CORS_ALLOW_HEADERS = (
     "accept",
     "accept-encoding",
@@ -101,11 +113,11 @@ FIXTURE_DIRS = ("fixtures/",)
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'postgres',
-        'USER': 'postgres',
-        'PASSWORD': 'postgres',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'NAME': os.getenv('DB_NAME'),
+        'USER': os.getenv('DB_USER'),
+        'PASSWORD': os.getenv('DB_PASSWORD'),
+        'HOST': os.getenv('DB_HOST'),
+        'PORT': os.getenv('DB_PORT'),
     }
 }
 
@@ -172,17 +184,17 @@ LOGGING = {
 
 AUTH_USER_MODEL = 'users.User'
 
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_USE_TLS = True
-EMAIL_PORT = 587
-EMAIL_HOST_USER = 'sender@gmail.com'
-EMAIL_HOST_PASSWORD = 'senderpass'
+EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', True)
+EMAIL_PORT = os.getenv('EMAIL_PORT', 587)
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'sender@gmail.com')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', 'senderpass')
 
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": "redis://redis:6379/0",
+        "LOCATION": os.getenv('REDIS_LOCATION'),
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
         }
@@ -194,4 +206,26 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
     "AUTH_HEADER_TYPES": ("Bearer",),
     "AUTH_HEADER_NAME": "HTTP_AUTHORIZATION",
+}
+
+INTERNAL_IPS = os.getenv('INTERNAL_IPS').split(',')
+
+sentry_sdk.init(
+    dsn=os.getenv('SENTRY_DSN'),
+    integrations=[DjangoIntegration(),],
+    traces_sample_rate=1.0,
+    send_default_pii=True
+)
+
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL')
+
+CELERY_BEAT_SCHEDULE = {
+    'generate_random_tasks_every_12_hours': {
+        'task': 'internship.tasks.tasks.run_generate_random_tasks',
+        'schedule': 43200,
+    },
+    'generate_random_timelogs_every_12_hours': {
+        'task': 'internship.tasks.tasks.run_generate_random_timelogs',
+        'schedule': 43200,
+    },
 }

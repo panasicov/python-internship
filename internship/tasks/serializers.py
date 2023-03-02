@@ -1,22 +1,20 @@
 from rest_framework import serializers
+from django.utils.timezone import timedelta
 
 from internship.tasks.models import Task, Comment, TimeLog
 from internship.users.serializers import UserSerializer
-from django.db.models import Sum, F, ExpressionWrapper, DurationField
-from django.db.models.functions import Coalesce
-from django.utils import timezone
 
 
 class TimeLogSerializer(serializers.ModelSerializer):
-    duration = serializers.FloatField(write_only=True)
-    start = serializers.DateTimeField()
+
+    def save(self, **kwargs):
+        self.validated_data['duration'] = timedelta(minutes=self.validated_data['duration'].total_seconds())
+        return super().save(**kwargs)
 
     class Meta:
         model = TimeLog
-        fields = ('id', 'start', 'stop', 'task', 'created_by', 'duration', 'created_at', 'updated_at')
+        fields = ('id', 'start', 'duration', 'task', 'created_by', 'created_at', 'updated_at')
         extra_kwargs = {
-            'stop': {'read_only': True},
-            'task': {'read_only': True},
             'created_by': {'read_only': True},
             'created_at': {'read_only': True},
             'updated_at': {'read_only': True},
@@ -37,25 +35,22 @@ class CommentSerializer(serializers.ModelSerializer):
 
 
 class TaskSerializer(serializers.ModelSerializer):
-    time_sum_minutes = serializers.SerializerMethodField()
-
-    def get_time_sum_minutes(self, obj):
-        try:
-            return obj.duration_sum.total_seconds() / 60
-        except AttributeError:
-            duration_sum = obj.task_timelog_set.annotate(
-                duration=ExpressionWrapper(Coalesce('stop', timezone.now()) - F('start'), output_field=DurationField())
-            ).aggregate(duration_sum=Sum('duration'))['duration_sum']
-
-            if duration_sum:
-                return duration_sum.total_seconds() / 60
+    total_time = serializers.DurationField(read_only=True)
 
     class Meta:
         model = Task
-        fields = ('id', 'title', 'description', 'is_completed', 'created_by', 'assigned_to', 'created_at', 'updated_at', 'time_sum_minutes')
+        fields = (
+            'id',
+            'title',
+            'description',
+            'is_completed',
+            'created_by',
+            'assigned_to',
+            'total_time',
+            'created_at',
+            'updated_at'
+        )
         extra_kwargs = {
-            'title': {'required': False},
-            'description': {'required': False},
             'is_completed': {'read_only': True},
             'created_by': {'read_only': True},
             'assigned_to': {'read_only': True},
@@ -110,4 +105,36 @@ class ReadOnlyTaskSerializer(ReadOnlySerializer, TaskSerializer):
 class ReadOnlyTimeLogSerializer(ReadOnlySerializer):
 
     class Meta(TimeLogSerializer.Meta):
-        fields = ('id', 'start', 'stop', 'task', 'created_by', 'created_at', 'updated_at')
+        fields = ('id', 'start', 'task', 'created_by', 'created_at', 'updated_at')
+
+
+class StartStopTimeLogSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = TimeLog
+        fields = ('id', 'start', 'task', 'created_by', 'duration', 'created_at', 'updated_at')
+        extra_kwargs = {
+            'start': {'read_only': True},
+            'created_by': {'read_only': True},
+            'duration': {'read_only': True},
+            'created_at': {'read_only': True},
+            'updated_at': {'read_only': True},
+        }
+
+
+class MonthTopTasksByTimeSerializer(serializers.ModelSerializer):
+    total_time = serializers.DurationField()
+
+    class Meta:
+        model = Task
+        fields = (
+            'id',
+            'title',
+            'description',
+            'is_completed',
+            'created_by',
+            'assigned_to',
+            'created_at',
+            'updated_at',
+            'total_time'
+        )
