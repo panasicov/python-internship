@@ -4,7 +4,6 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-
 User = get_user_model()
 
 
@@ -44,15 +43,18 @@ class UsersTests(APITestCase):
         user = User.objects.get(email='user1@mail.com')
         self.client.force_authenticate(user=user)
 
-        response = self.client.get(reverse('user_timelog'))
+        response = self.client.get(reverse('user_month_time'))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         response = self.client.post(
-            reverse('task-create-timelog', kwargs={"pk": 1}),
-            data={"start": timezone.datetime.strftime(timezone.now(), '%Y-%m-%d %H:%M:%S'),
-                  "duration": 5}
+            reverse('timelog-list'),
+            data={
+                "start": timezone.datetime.strftime(timezone.now(), '%Y-%m-%d %H:%M:%S'),
+                "duration": "5",
+                "task": 1
+            }
         )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
-        response = self.client.get(reverse('user_timelog'))
+        response = self.client.get(reverse('user_month_time'))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
