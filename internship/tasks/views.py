@@ -1,34 +1,42 @@
 from django.conf import settings
 from django.core.mail import send_mail
-from django.db.models import Sum, F, Q, ExpressionWrapper, DurationField
-from django.db.models.functions import Coalesce
 from django.utils import timezone
-from django.utils.dateparse import parse_datetime
 from django.utils.decorators import method_decorator
+from django.db.models import Sum, Q
 from django.views.decorators.cache import cache_page
 from django_filters.rest_framework import DjangoFilterBackend
-from drf_util.views import BaseModelViewSet
 from rest_framework import filters
+from rest_framework.mixins import CreateModelMixin
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from dateutil.relativedelta import relativedelta
+from drf_util.views import BaseModelViewSet, BaseViewSet
 
-from internship.tasks.models import Task
+from internship import celery
+from internship.tasks.models import Task, TimeLog
+from internship.tasks.permissions import CanStartTimeLog, CanStopTimeLog
 from internship.tasks.serializers import (
+    CommentSerializer,
+    StartStopTimeLogSerializer,
     TaskSerializer,
     TaskRetrieveSerializer,
     AssignTaskSerializer,
     ReadOnlyTaskSerializer,
+    TimeLogSerializer,
+    MonthTopTasksByTimeSerializer,
 )
 
 
 class TaskViewSet(BaseModelViewSet):
-    queryset = Task.objects.all()
+    queryset = Task.objects.all().prefetch_related('task_timelog_set')
     serializer_class = TaskSerializer
     serializer_retrieve_class = TaskRetrieveSerializer
     serializer_by_action = {
-        'assign': AssignTaskSerializer,
-        'complete': ReadOnlyTaskSerializer,
-
+        'task_assign': AssignTaskSerializer,
+        'task_complete': ReadOnlyTaskSerializer,
+        'create_comment': CommentSerializer,
+        'month_top_20_by_time': MonthTopTasksByTimeSerializer
     }
     filter_backends = (DjangoFilterBackend, filters.SearchFilter)
     filterset_fields = ('is_completed',)
@@ -37,10 +45,13 @@ class TaskViewSet(BaseModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        if getattr(self, 'swagger_fake_view', False):
-            return
-        if self.action == 'user_tasks':
+        if self.action == 'list':
+            return self.queryset.prefetch_related('task_timelog_set').annotate(
+                total_time=Sum('task_timelog_set__duration')
+            )
+        elif self.action in ('user_tasks', 'month_top_20_by_time'):
             return self.queryset.filter(assigned_to=self.request.user)
+
         return queryset
 
     def perform_create(self, serializer, **kwargs):
@@ -48,9 +59,10 @@ class TaskViewSet(BaseModelViewSet):
 
     @action(methods=['GET'], detail=False, url_path='user_tasks', url_name='user_tasks')
     def user_tasks(self, request, *args, **kwargs):
+        celery.run_generate_random_tasks.delay()
         return super().list(request, *args, **kwargs)
 
-    @action(methods=['POST'], detail=True, url_path='task_assign', url_name='task_assign')
+    @action(methods=['PATCH'], detail=True, url_path='task_assign', url_name='task_assign')
     def task_assign(self, request, *args, **kwargs):
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=self.request.data)
@@ -66,7 +78,7 @@ class TaskViewSet(BaseModelViewSet):
 
         return Response(serializer.data)
 
-    @action(methods=['PATCH'], detail=True)
+    @action(methods=['PATCH'], detail=True, url_path='task_complete', url_name='task_complete')
     def task_complete(self, request, *args, **kwargs):
         instance = self.get_object()
         instance.is_completed = True
@@ -83,8 +95,8 @@ class TaskViewSet(BaseModelViewSet):
 
         return Response(serializer.data)
 
-    @action(methods=['POST'], detail=True)
-    def comment(self, request, pk, *args, **kwargs):
+    @action(methods=['POST'], detail=True, url_path='create_comment', url_name='create_comment')
+    def create_comment(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=self.request.data)
         serializer.is_valid(raise_exception=True)
         instance = self.get_object()
@@ -100,50 +112,48 @@ class TaskViewSet(BaseModelViewSet):
         return Response(serializer.data)
 
     @method_decorator(cache_page(60))
-    @action(methods=['GET'], detail=False, url_path='timelog/me/greatest/month')
-    def user_timelogs(self, request, *args, **kwargs):
-        last_month_datetime = timezone.now() - timezone.timedelta(days=30)
-        instance = self.get_queryset().filter(
-            task_timelog_set__start__gte=last_month_datetime,
-            task_timelog_set__created_by=request.user
-        ).annotate(
-            duration_sum=Sum(
-                ExpressionWrapper(
-                    Coalesce('task_timelog_set__stop', timezone.now()) - F('task_timelog_set__start'),
-                    output_field=DurationField()
-                ),
-                filter=Q(
-                    task_timelog_set__start__gte=last_month_datetime
-                )
+    @action(methods=['GET'], detail=False, url_path='month_top_20_by_time', url_name='month_top_20_by_time')
+    def month_top_20_by_time(self, request, *args, **kwargs):
+        instance = self.get_queryset().annotate(
+            total_time=Sum(
+                'task_timelog_set__duration',
+                filter=Q(task_timelog_set__start__gte=timezone.now() - relativedelta(month=1))
             )
-        ).order_by('-duration_sum')[:20]
+        ).exclude(total_time=None).order_by('-total_time')[:20]
 
         serializer = self.get_serializer(instance, many=True)
         return Response(serializer.data)
 
-    @action(methods=['POST'], detail=True, url_path='timelog')
-    def create_timelog(self, request, pk, *args, **kwargs):
-        instance = self.get_object()
+
+class TimeLogViewSet(BaseViewSet, CreateModelMixin):
+    queryset = TimeLog.objects.all()
+    serializer_class = TimeLogSerializer
+    serializer_by_action = {
+        'start_timelog': StartStopTimeLogSerializer,
+        'stop_timelog': StartStopTimeLogSerializer,
+    }
+    permission_classes_by_action = {
+        'start_timelog': [IsAuthenticated, CanStartTimeLog],
+        'stop_timelog': [IsAuthenticated, CanStopTimeLog],
+    }
+
+    def perform_create(self, serializer, **kwargs):
+        return serializer.save(created_by=self.request.user)
+
+    @action(methods=['POST'], detail=False, url_path='start', url_name='start_timelog')
+    def start_timelog(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=self.request.data)
         serializer.is_valid(raise_exception=True)
-        start_datetime = parse_datetime(str(serializer.validated_data.get('start')))
-        stop_datetime = start_datetime + timezone.timedelta(minutes=serializer.validated_data.pop('duration'))
-        serializer.save(start=start_datetime, stop=stop_datetime, created_by=request.user, task=instance)
+        serializer.save(start=timezone.now(), created_by=request.user)
         return Response(serializer.data)
 
-    @action(methods=['POST'], detail=True, url_path='timelog/start')
-    def start_timelog(self, request, pk, *args, **kwargs):
-        serializer = self.get_serializer(data=self.request.data)
-        serializer.is_valid(raise_exception=True)
-        instance = self.get_object()
-        serializer.save(start=timezone.now(), created_by=request.user, task=instance)
-        return Response(serializer.data)
-
-    @action(methods=['PATCH'], detail=True, url_path='timelog/stop')
-    def stop_timelog(self, request, pk, *args, **kwargs):
-        instance = self.get_object()
-        last_task_timelog = instance.task_timelog_set.filter(created_by=request.user).last()
-        last_task_timelog.stop = timezone.now()
-        last_task_timelog.save()
-        serializer = self.get_serializer(last_task_timelog)
+    @action(methods=['PATCH'], detail=False, url_path='stop', url_name='stop_timelog')
+    def stop_timelog(self, request, *args, **kwargs):
+        instance = self.get_queryset().filter(
+            task=request.data['task'],
+            created_by=request.user
+        ).last()
+        instance.duration = timezone.now() - instance.start
+        instance.save()
+        serializer = self.get_serializer(instance)
         return Response(serializer.data)

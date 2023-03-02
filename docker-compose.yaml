@@ -20,8 +20,12 @@ services:
         python -m internship runserver 0.0.0.0:8000
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     depends_on:
       - postgres
+      - redis
+
 
   postgres:
     image: postgres:latest
@@ -46,6 +50,41 @@ services:
     environment:
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
 
+
   redis:
     image: redis:7.0.7
-    command: redis-server
+
+
+  rabbitmq:
+    image: rabbitmq:3.10.7-management
+
+
+  celery-worker:
+    restart: always
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: madefire/chordtest
+    command: ['celery', '-A', 'internship', 'worker', '-l', 'info']
+    volumes:
+      - ./:/app/
+    depends_on:
+      - rabbitmq
+      - django
+      - postgres
+
+
+  celery-beat-worker:
+    restart: always
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: madefire/chordtest
+    command: ['celery', '-A', 'internship', 'beat', '-l', 'info']
+    volumes:
+      - ./:/app/
+    depends_on:
+      - celery-worker
+      - rabbitmq
+      - django
+      - postgres
