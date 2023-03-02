@@ -59,7 +59,6 @@ class TaskViewSet(BaseModelViewSet):
 
     @action(methods=['GET'], detail=False, url_path='user_tasks', url_name='user_tasks')
     def user_tasks(self, request, *args, **kwargs):
-        celery.run_generate_random_tasks.delay()
         return super().list(request, *args, **kwargs)
 
     @action(methods=['PATCH'], detail=True, url_path='task_assign', url_name='task_assign')
