@@ -13,7 +13,6 @@ from rest_framework.permissions import IsAuthenticated
 from dateutil.relativedelta import relativedelta
 from drf_util.views import BaseModelViewSet, BaseViewSet
 
-from internship import celery
 from internship.tasks.models import Task, TimeLog
 from internship.tasks.permissions import CanStartTimeLog, CanStopTimeLog
 from internship.tasks.serializers import (
@@ -59,7 +58,6 @@ class TaskViewSet(BaseModelViewSet):
 
     @action(methods=['GET'], detail=False, url_path='user_tasks', url_name='user_tasks')
     def user_tasks(self, request, *args, **kwargs):
-        celery.run_generate_random_tasks.delay()
         return super().list(request, *args, **kwargs)
 
     @action(methods=['PATCH'], detail=True, url_path='task_assign', url_name='task_assign')
