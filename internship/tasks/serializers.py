@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
-from apps.tasks.models import Task, Comment, TimeLog
-from apps.users.serializers import UserSerializer
+from internship.tasks.models import Task, Comment, TimeLog
+from internship.users.serializers import UserSerializer
 from django.db.models import Sum, F, ExpressionWrapper, DurationField
 from django.db.models.functions import Coalesce
 from django.utils import timezone
@@ -27,11 +27,12 @@ class CommentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Comment
-        fields = ('id', 'text', 'posted_by', 'created_at', 'updated_at')
+        fields = ('id', 'text', "task", 'posted_by', 'created_at', 'updated_at')
         extra_kwargs = {
             'posted_by': {'read_only': True},
             'created_at': {'read_only': True},
             'updated_at': {'read_only': True},
+            'task': {'read_only': True},
         }
 
 

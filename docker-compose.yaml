@@ -1,22 +1,41 @@
 version: '3.9'
 
+volumes:
+    internship_postgres:
+        name: internship_postgres
+
+
 services:
-  backend:
-    build: .
-    volumes:
-      - .:/app/backend
-    restart: always
+  django:
+    container_name: internship_django
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command:
+      - bash
+      - -c
+      - |
+        python -m internship migrate --no-input
+        python -m internship collectstatic --no-input
+        python -m internship runserver 0.0.0.0:8000
     ports:
       - "8000:8000"
-    command: make docker-run-dev
     depends_on:
       - postgres
 
   postgres:
-    image: postgres:12
-    restart: always
+    image: postgres:latest
+    container_name: internship_postgres
+    hostname: postgres.internship.com
     environment:
-      - POSTGRES_HOST_AUTH_METHOD=trust
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - internship_postgres:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
 
   pghero:
     image: ankane/pghero

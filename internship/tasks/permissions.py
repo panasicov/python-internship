@@ -1,6 +1,6 @@
 from rest_framework.permissions import BasePermission
 
-from apps.tasks.models import TimeLog
+from internship.tasks.models import TimeLog
 
 
 class CanStartTimeLog(BasePermission):

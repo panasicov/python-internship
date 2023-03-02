@@ -7,8 +7,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.users.serializers import UserListSerializer, UserSerializer
-
+from internship.users.serializers import UserListSerializer, UserSerializer
 
 User = get_user_model()
 
@@ -17,11 +16,10 @@ class RegisterUserView(CreateAPIView):
     serializer_class = UserSerializer
     permission_classes = (AllowAny,)
 
-    def post(self, request):
+    def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        validated_data = serializer.validated_data
-        password = validated_data.pop('password')
+        password = serializer.validated_data["password"]
 
         user = serializer.save()
         user.set_password(password)
