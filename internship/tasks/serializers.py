@@ -1,5 +1,5 @@
-from rest_framework import serializers
 from django.utils.timezone import timedelta
+from rest_framework import serializers
 
 from internship.tasks.models import Task, Comment, TimeLog
 from internship.users.serializers import UserSerializer
@@ -22,7 +22,6 @@ class TimeLogSerializer(serializers.ModelSerializer):
 
 
 class CommentSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Comment
         fields = ('id', 'text', "task", 'posted_by', 'created_at', 'updated_at')
@@ -81,7 +80,6 @@ class TaskRetrieveSerializer(TaskSerializer):
 
 
 class AssignTaskSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Task
         fields = ('assigned_to',)
@@ -97,19 +95,16 @@ class ReadOnlySerializer(serializers.ModelSerializer):
 
 
 class ReadOnlyTaskSerializer(ReadOnlySerializer, TaskSerializer):
-
     class Meta(TaskSerializer.Meta):
         pass
 
 
 class ReadOnlyTimeLogSerializer(ReadOnlySerializer):
-
     class Meta(TimeLogSerializer.Meta):
         fields = ('id', 'start', 'task', 'created_by', 'created_at', 'updated_at')
 
 
 class StartStopTimeLogSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = TimeLog
         fields = ('id', 'start', 'task', 'created_by', 'duration', 'created_at', 'updated_at')

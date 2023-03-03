@@ -1,11 +1,10 @@
 import os
 from pathlib import Path
-from django.utils.timezone import timedelta
 
-from sentry_sdk.integrations.django import DjangoIntegration
 import sentry_sdk
+from django.utils.timezone import timedelta  # noqa
 from dotenv import load_dotenv
-
+from sentry_sdk.integrations.django import DjangoIntegration
 
 load_dotenv()
 
@@ -73,7 +72,6 @@ TEMPLATES = [
 WSGI_APPLICATION = 'internship.wsgi.application'
 
 CORS_ORIGIN_ALLOW_ALL = bool(os.getenv('CORS_ORIGIN_ALLOW_ALL'))
-CORS_ORIGIN_WHITELIST = os.getenv('CORS_ORIGIN_WHITELIST').split(',')
 
 CORS_ALLOW_HEADERS = (
     "accept",
@@ -212,7 +210,7 @@ INTERNAL_IPS = os.getenv('INTERNAL_IPS').split(',')
 
 sentry_sdk.init(
     dsn=os.getenv('SENTRY_DSN'),
-    integrations=[DjangoIntegration(),],
+    integrations=[DjangoIntegration(), ],
     traces_sample_rate=1.0,
     send_default_pii=True
 )
