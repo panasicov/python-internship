@@ -1,7 +1,7 @@
-from datetime import datetime, timedelta
 import random
 import socket
 import time
+from datetime import datetime, timedelta
 
 if __name__ == "__main__":
     started_at = datetime.utcnow()
