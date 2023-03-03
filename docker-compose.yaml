@@ -52,11 +52,11 @@ services:
 
 
   redis:
-    image: redis:7.0.7
+    image: redis:7.0.7-alpine
 
 
   rabbitmq:
-    image: rabbitmq:3.10.7-management
+    image: rabbitmq:3.10.7-management-alpine
 
 
   celery-worker:

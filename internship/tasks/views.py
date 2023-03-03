@@ -140,7 +140,7 @@ class TimeLogViewSet(BaseViewSet, CreateModelMixin):
 
     @action(methods=['POST'], detail=False, url_path='start', url_name='start_timelog')
     def start_timelog(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=self.request.data)
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save(start=timezone.now(), created_by=request.user)
         return Response(serializer.data)

@@ -1,12 +1,77 @@
+<div align="center">
+    <h1>EBS Python Internship Test</h1>
+    <p>REST API for task management application</p>
+</div>
+
+Welcome to the EBS Python Internship Test codebase. This is a REST API for task management application. This app
+allows users to create tasks, assign them to other users, and log time spent on them.
+
+## 🛠 Requirements
+- Python 3.11
+- Django 3.2.16
+- Docker 23.0.1
+
+## .env (with example of values)
+```azure
+SECRET_KEY='django-insecure-...'
+DEBUG=1
+
+CORS_ORIGIN_ALLOW_ALL=1
+CORS_ORIGIN_WHITELIST=http://localhost:8000,http://127.0.0.1:8000,http://0.0.0.0:8000
+
+DB_NAME=postgres
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_HOST=127.0.0.1
+DB_PORT=5432
+
+EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+EMAIL_HOST=smtp.gmail.com
+EMAIL_USE_TLS=1
+EMAIL_PORT=587
+EMAIL_HOST_USER=sender@gmail.com
+EMAIL_HOST_PASSWORD=senderpass
+
+REDIS_LOCATION=redis://localhost:6379/0
+
+INTERNAL_IPS=127.0.0.1,0.0.0.0
+
+CELERY_BROKER_URL=amqp://guest@localhost//
+SENTRY_DSN=
+```
+
+## 🔮 Installing and running locally
+
+1. Install [Docker](https://www.docker.com/get-started)
+
+2. Clone the repo
+
+    ```sh
+    $ git clone https://github.com/panasicov/python-internship
+    $ cd python-internship
+    ```
+
+3. Create .env
+
+4. Run
+
+    ```sh
+    $ docker compose up -d --build
+    ```
+
 ## Endpoints:
+
 ### Register:
 1. User register `POST | /register`
+
 ### Token:
 1. User access token `POST | /token`
 2. User refresh token `POST | /token/refresh`
+
 ### Users:
 1. User list `GET | users/`
 2. Total amount of time logged by user in last month `GET | /users/me/month_time`
+
 ### Tasks:
 1. Task list `GET | tasks/`
 2. Create task `POST | tasks/`
