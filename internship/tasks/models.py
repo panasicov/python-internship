@@ -1,7 +1,8 @@
 __all__ = [
     'Task',
     'Comment',
-    'TimeLog'
+    'TimeLog',
+    'Attachment',
 ]
 
 from django.contrib.auth import get_user_model
@@ -66,6 +67,22 @@ class TimeLog(models.Model):
     class Meta:
         verbose_name = 'TimeLog'
         verbose_name_plural = 'TimeLogs'
+        ordering = ('id',)
+
+    def __str__(self):
+        return f"{self.id}"
+
+
+class Attachment(models.Model):
+    file = models.FileField(upload_to='attachments')
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='task_attachment_set')
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_attachment_set')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Attachment'
+        verbose_name_plural = 'Attachments'
         ordering = ('id',)
 
     def __str__(self):

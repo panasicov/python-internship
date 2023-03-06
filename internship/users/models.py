@@ -1,3 +1,5 @@
+__all__ = ['User']
+
 from django.contrib.auth.models import AbstractUser, UserManager as BaseUserManger
 from django.contrib.auth.validators import UnicodeUsernameValidator
 from django.db import models
