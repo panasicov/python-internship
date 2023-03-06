@@ -1,9 +1,8 @@
-from django.contrib.auth import get_user_model
-from django.utils import timezone
-from django.db.models import Sum
-from rest_framework import serializers
 from dateutil.relativedelta import relativedelta
-
+from django.contrib.auth import get_user_model
+from django.db.models import Sum
+from django.utils import timezone
+from rest_framework import serializers
 
 User = get_user_model()
 
@@ -20,7 +19,7 @@ class UserListSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
 
     def get_full_name(self, obj):
-        return '{} {}'.format(obj.first_name, obj.last_name)
+        return f'{obj.first_name} {obj.last_name}'
 
     class Meta:
         model = User
@@ -37,7 +36,8 @@ class UserMonthTimeSerializer(serializers.ModelSerializer):
         ).aggregate(
             Sum('duration')
         )['duration__sum']
-        return duration_sum.total_seconds() / 60
+        if duration_sum:
+            return duration_sum.total_seconds() / 60
 
     class Meta:
         model = User

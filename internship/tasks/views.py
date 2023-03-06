@@ -1,19 +1,18 @@
+from dateutil.relativedelta import relativedelta
 from django.conf import settings
 from django.core.mail import send_mail
+from django.db.models import Sum, Q
 from django.utils import timezone
 from django.utils.decorators import method_decorator
-from django.db.models import Sum, Q
 from django.views.decorators.cache import cache_page
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters
-from rest_framework.mixins import CreateModelMixin
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from dateutil.relativedelta import relativedelta
 from drf_util.views import BaseModelViewSet, BaseViewSet
+from rest_framework import filters
+from rest_framework.decorators import action
+from rest_framework.mixins import CreateModelMixin
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
-from internship import celery
 from internship.tasks.models import Task, TimeLog
 from internship.tasks.permissions import CanStartTimeLog, CanStopTimeLog
 from internship.tasks.serializers import (
@@ -141,7 +140,7 @@ class TimeLogViewSet(BaseViewSet, CreateModelMixin):
 
     @action(methods=['POST'], detail=False, url_path='start', url_name='start_timelog')
     def start_timelog(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=self.request.data)
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save(start=timezone.now(), created_by=request.user)
         return Response(serializer.data)

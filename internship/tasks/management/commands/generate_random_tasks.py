@@ -6,7 +6,6 @@ from faker import Faker
 
 from internship.tasks.models import Task
 
-
 fake = Faker()
 Faker.seed(4321)
 User = get_user_model()

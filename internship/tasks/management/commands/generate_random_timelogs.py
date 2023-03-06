@@ -1,11 +1,10 @@
 import random
 
-from django.utils import timezone
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
+from django.utils import timezone
 
-from internship.tasks.models import TimeLog, Task
-
+from internship.tasks.models import Task, TimeLog
 
 User = get_user_model()
 
@@ -20,7 +19,7 @@ class Command(BaseCommand):
             objs.append(
                 TimeLog(
                     start=timezone.now() - timezone.timedelta(days=3),
-                    stop=timezone.now() - timezone.timedelta(days=1),
+                    duration=timezone.timedelta(minutes=123),
                     task=random.choice(tasks),
                     created_by=user,
                 )

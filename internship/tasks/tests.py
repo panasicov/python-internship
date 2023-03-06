@@ -5,7 +5,6 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
-
 User = get_user_model()
 
 
@@ -57,53 +56,56 @@ class TaskTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
     def test_me(self):
-        response = self.client.get(reverse('task-me'))
+        response = self.client.get(reverse('task-user_tasks'))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_assign(self):
-        response = self.client.post(reverse('task-assign', kwargs={"pk": 2}), data={'assigned_to': 1})
+        response = self.client.patch(reverse('task-task_assign', kwargs={"pk": 2}), data={'assigned_to': 1})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        response = self.client.get(reverse('task-me'))
+        response = self.client.get(reverse('task-user_tasks'))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_complete(self):
-        response = self.client.patch(reverse('task-complete', kwargs={"pk": 1}))
+        response = self.client.patch(reverse('task-task_complete', kwargs={"pk": 1}))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         response = self.client.get(reverse('task-list'), {'is_completed': True})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        response = self.client.patch(reverse('task-complete', kwargs={"pk": 2}))
+        response = self.client.patch(reverse('task-task_complete', kwargs={"pk": 2}))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         response = self.client.get(reverse('task-list'), {'is_completed': True})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_comment(self):
-        response = self.client.post(reverse('task-comment', kwargs={"pk": 1}), data={'text': 'string'})
+        response = self.client.post(reverse('task-create_comment', kwargs={"pk": 1}), data={'text': 'string'})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_timelog(self):
         response = self.client.post(
-            reverse('task-create-timelog', kwargs={"pk": 1}),
-            data={"start": timezone.datetime.strftime(timezone.now(), '%Y-%m-%d %H:%M:%S'),
-                  "duration": 2}
+            reverse('timelog-list'),
+            data={
+                "start": timezone.datetime.strftime(timezone.now(), '%Y-%m-%d %H:%M:%S'),
+                "duration": "2",
+                "task": 1
+            }
         )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
-        response = self.client.get(reverse('task-me-timelog'))
+        response = self.client.get(reverse('user_month_time'))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_start_stop_timelog(self):
-        response = self.client.post(reverse('task-start-timelog', kwargs={"pk": 1}))
+        response = self.client.post(reverse('timelog-start_timelog'), data={"task": 1})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        response = self.client.post(reverse('task-start-timelog', kwargs={"pk": 1}))
+        response = self.client.post(reverse('timelog-start_timelog'), data={"task": 1})
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-        response = self.client.patch(reverse('task-stop-timelog', kwargs={"pk": 1}))
+        response = self.client.patch(reverse('timelog-stop_timelog'), data={"task": 1})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        response = self.client.patch(reverse('task-stop-timelog', kwargs={"pk": 1}))
+        response = self.client.patch(reverse('timelog-stop_timelog'), data={"task": 1})
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
