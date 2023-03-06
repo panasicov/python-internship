@@ -6,7 +6,6 @@ from sentry_sdk.integrations.django import DjangoIntegration
 import sentry_sdk
 from dotenv import load_dotenv
 
-
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -31,6 +30,8 @@ INSTALLED_APPS = [
     "drf_yasg",
     "django_filters",
     "debug_toolbar",
+    "django_celery_beat",
+    "django_celery_results",
 
     "internship.common",
     "internship.users",
@@ -212,20 +213,20 @@ INTERNAL_IPS = os.getenv('INTERNAL_IPS').split(',')
 
 sentry_sdk.init(
     dsn=os.getenv('SENTRY_DSN'),
-    integrations=[DjangoIntegration(),],
+    integrations=[DjangoIntegration(), ],
     traces_sample_rate=1.0,
     send_default_pii=True
 )
+RABBITMQ_USER = os.getenv('RABBITMQ_USER')
+RABBITMQ_PASS = os.getenv('RABBITMQ_PASS')
+RABBITMQ_HOST = os.getenv('RABBITMQ_HOST')
+RABBITMQ_PORT = os.getenv('RABBITMQ_PORT')
+RABBITMQ_VHOST = os.getenv('RABBITMQ_VHOST')
 
-CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL')
+CELERY_BROKER_URL = f"amqp://{RABBITMQ_USER}:{RABBITMQ_PASS}@{RABBITMQ_HOST}:{RABBITMQ_PORT}/{RABBITMQ_VHOST}"
 
-CELERY_BEAT_SCHEDULE = {
-    'generate_random_tasks_every_12_hours': {
-        'task': 'internship.tasks.tasks.run_generate_random_tasks',
-        'schedule': 43200,
-    },
-    'generate_random_timelogs_every_12_hours': {
-        'task': 'internship.tasks.tasks.run_generate_random_timelogs',
-        'schedule': 43200,
-    },
-}
+CELERY_RESULT_BACKEND = "django-db"
+
+CELERY_RESULT_EXTENDED = True
+
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
