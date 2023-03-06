@@ -1,7 +1,20 @@
-from django.utils.timezone import timedelta
+__all__ = (
+    'TimeLogSerializer',
+    'CommentSerializer',
+    'AttachmentSerializer',
+    'TaskSerializer',
+    'TaskRetrieveSerializer',
+    'AssignTaskSerializer',
+    'ReadOnlyTaskSerializer',
+    'ReadOnlyTimeLogSerializer',
+    'StartStopTimeLogSerializer',
+    'MonthTopTasksByTimeSerializer',
+)
+
+from django.utils.timezone import timedelta  # noqa
 from rest_framework import serializers
 
-from internship.tasks.models import Task, Comment, TimeLog
+from internship.tasks.models import Task, Comment, TimeLog, Attachment
 from internship.users.serializers import UserSerializer
 
 
@@ -30,6 +43,17 @@ class CommentSerializer(serializers.ModelSerializer):
             'created_at': {'read_only': True},
             'updated_at': {'read_only': True},
             'task': {'read_only': True},
+        }
+
+
+class AttachmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Attachment
+        fields = ('id', 'file', 'task', 'created_by', 'created_at', 'updated_at')
+        extra_kwargs = {
+            'created_by': {'read_only': True},
+            'created_at': {'read_only': True},
+            'updated_at': {'read_only': True},
         }
 
 
@@ -63,6 +87,7 @@ class TaskRetrieveSerializer(TaskSerializer):
     assigned_to = UserSerializer(read_only=True)
     commented_task_set = CommentSerializer(many=True, read_only=True)
     task_timelog_set = TimeLogSerializer(many=True, read_only=True)
+    task_attachment_set = AttachmentSerializer(many=True, read_only=True)
 
     class Meta(TaskSerializer.Meta):
         fields = (
@@ -76,6 +101,7 @@ class TaskRetrieveSerializer(TaskSerializer):
             'updated_at',
             'commented_task_set',
             'task_timelog_set',
+            'task_attachment_set',
         )
 
 
