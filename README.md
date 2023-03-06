@@ -22,7 +22,7 @@ CORS_ORIGIN_WHITELIST=http://localhost:8000,http://127.0.0.1:8000,http://0.0.0.0
 DB_NAME=postgres
 DB_USER=postgres
 DB_PASSWORD=postgres
-DB_HOST=127.0.0.1
+DB_HOST=postgres.internship.com
 DB_PORT=5432
 
 EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
@@ -32,12 +32,16 @@ EMAIL_PORT=587
 EMAIL_HOST_USER=sender@gmail.com
 EMAIL_HOST_PASSWORD=senderpass
 
-REDIS_LOCATION=redis://localhost:6379/0
+REDIS_LOCATION=redis://internship_redis:6379/0
 
 INTERNAL_IPS=127.0.0.1,0.0.0.0
 
-CELERY_BROKER_URL=amqp://guest@localhost//
-SENTRY_DSN=
+RABBITMQ_USER=guest
+RABBITMQ_PASS=guest
+RABBITMQ_HOST=rabbitmq.internship.com
+RABBITMQ_PORT=5672
+RABBITMQ_VHOST=/
+SENTRY_DSN=...
 ```
 
 ## 🔮 Installing and running locally

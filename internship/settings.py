@@ -1,10 +1,10 @@
 import os
 from pathlib import Path
+from django.utils.timezone import timedelta
 
-import sentry_sdk
-from django.utils.timezone import timedelta  # noqa
-from dotenv import load_dotenv
 from sentry_sdk.integrations.django import DjangoIntegration
+import sentry_sdk
+from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -14,7 +14,7 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 
 DEBUG = os.getenv('DEBUG').lower() in ('true', '1')
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = ['*']
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -30,6 +30,8 @@ INSTALLED_APPS = [
     "drf_yasg",
     "django_filters",
     "debug_toolbar",
+    "django_celery_beat",
+    "django_celery_results",
 
     "internship.common",
     "internship.users",
@@ -72,6 +74,7 @@ TEMPLATES = [
 WSGI_APPLICATION = 'internship.wsgi.application'
 
 CORS_ORIGIN_ALLOW_ALL = bool(os.getenv('CORS_ORIGIN_ALLOW_ALL'))
+CORS_ORIGIN_WHITELIST = os.getenv('CORS_ORIGIN_WHITELIST').split(',')
 
 CORS_ALLOW_HEADERS = (
     "accept",
@@ -214,16 +217,16 @@ sentry_sdk.init(
     traces_sample_rate=1.0,
     send_default_pii=True
 )
+RABBITMQ_USER = os.getenv('RABBITMQ_USER')
+RABBITMQ_PASS = os.getenv('RABBITMQ_PASS')
+RABBITMQ_HOST = os.getenv('RABBITMQ_HOST')
+RABBITMQ_PORT = os.getenv('RABBITMQ_PORT')
+RABBITMQ_VHOST = os.getenv('RABBITMQ_VHOST')
 
-CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL')
+CELERY_BROKER_URL = f"amqp://{RABBITMQ_USER}:{RABBITMQ_PASS}@{RABBITMQ_HOST}:{RABBITMQ_PORT}/{RABBITMQ_VHOST}"
 
-CELERY_BEAT_SCHEDULE = {
-    'generate_random_tasks_every_12_hours': {
-        'task': 'internship.tasks.tasks.run_generate_random_tasks',
-        'schedule': 43200,
-    },
-    'generate_random_timelogs_every_12_hours': {
-        'task': 'internship.tasks.tasks.run_generate_random_timelogs',
-        'schedule': 43200,
-    },
-}
+CELERY_RESULT_BACKEND = "django-db"
+
+CELERY_RESULT_EXTENDED = True
+
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
