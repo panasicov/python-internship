@@ -2,17 +2,20 @@ import os
 from pathlib import Path
 from django.utils.timezone import timedelta
 
+import environ
 from sentry_sdk.integrations.django import DjangoIntegration
 import sentry_sdk
 from dotenv import load_dotenv
 
-load_dotenv()
+env = environ.Env()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.getenv('SECRET_KEY')
+environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
-DEBUG = os.getenv('DEBUG').lower() in ('true', '1')
+SECRET_KEY = env('SECRET_KEY')
+
+DEBUG = env('DEBUG').lower() in ('true', '1')
 
 ALLOWED_HOSTS = ['*']
 
@@ -73,8 +76,8 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'internship.wsgi.application'
 
-CORS_ORIGIN_ALLOW_ALL = bool(os.getenv('CORS_ORIGIN_ALLOW_ALL'))
-CORS_ORIGIN_WHITELIST = os.getenv('CORS_ORIGIN_WHITELIST').split(',')
+CORS_ORIGIN_ALLOW_ALL = bool(env('CORS_ORIGIN_ALLOW_ALL'))
+CORS_ORIGIN_WHITELIST = env('CORS_ORIGIN_WHITELIST').split(',')
 
 CORS_ALLOW_HEADERS = (
     "accept",
@@ -114,11 +117,11 @@ FIXTURE_DIRS = ("fixtures/",)
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME'),
-        'USER': os.getenv('DB_USER'),
-        'PASSWORD': os.getenv('DB_PASSWORD'),
-        'HOST': os.getenv('DB_HOST'),
-        'PORT': os.getenv('DB_PORT'),
+        'NAME': env('DB_NAME'),
+        'USER': env('DB_USER'),
+        'PASSWORD': env('DB_PASSWORD'),
+        'HOST': env('DB_HOST'),
+        'PORT': env('DB_PORT'),
     }
 }
 
@@ -185,17 +188,17 @@ LOGGING = {
 
 AUTH_USER_MODEL = 'users.User'
 
-EMAIL_BACKEND = os.getenv('EMAIL_BACKEND')
-EMAIL_HOST = os.getenv('EMAIL_HOST')
-EMAIL_USE_TLS = bool(os.getenv('EMAIL_USE_TLS'))
-EMAIL_PORT = os.getenv('EMAIL_PORT')
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
+EMAIL_BACKEND = env('EMAIL_BACKEND')
+EMAIL_HOST = env('EMAIL_HOST')
+EMAIL_USE_TLS = bool(env('EMAIL_USE_TLS'))
+EMAIL_PORT = env('EMAIL_PORT')
+EMAIL_HOST_USER = env('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
 
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": os.getenv('REDIS_LOCATION'),
+        "LOCATION": env('REDIS_LOCATION'),
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
         }
@@ -209,19 +212,19 @@ SIMPLE_JWT = {
     "AUTH_HEADER_NAME": "HTTP_AUTHORIZATION",
 }
 
-INTERNAL_IPS = os.getenv('INTERNAL_IPS').split(',')
+INTERNAL_IPS = env('INTERNAL_IPS').split(',')
 
 sentry_sdk.init(
-    dsn=os.getenv('SENTRY_DSN'),
+    dsn=env('SENTRY_DSN'),
     integrations=[DjangoIntegration(), ],
     traces_sample_rate=1.0,
     send_default_pii=True
 )
-RABBITMQ_USER = os.getenv('RABBITMQ_USER')
-RABBITMQ_PASS = os.getenv('RABBITMQ_PASS')
-RABBITMQ_HOST = os.getenv('RABBITMQ_HOST')
-RABBITMQ_PORT = os.getenv('RABBITMQ_PORT')
-RABBITMQ_VHOST = os.getenv('RABBITMQ_VHOST')
+RABBITMQ_USER = env('RABBITMQ_USER')
+RABBITMQ_PASS = env('RABBITMQ_PASS')
+RABBITMQ_HOST = env('RABBITMQ_HOST')
+RABBITMQ_PORT = env('RABBITMQ_PORT')
+RABBITMQ_VHOST = env('RABBITMQ_VHOST')
 
 CELERY_BROKER_URL = f"amqp://{RABBITMQ_USER}:{RABBITMQ_PASS}@{RABBITMQ_HOST}:{RABBITMQ_PORT}/{RABBITMQ_VHOST}"
 
