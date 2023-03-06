@@ -1,3 +1,9 @@
+__all__ = (
+    'TaskViewSet',
+    'TimeLogViewSet',
+    'AttachmentViewSet',
+)
+
 from dateutil.relativedelta import relativedelta
 from django.conf import settings
 from django.core.mail import send_mail
@@ -10,10 +16,11 @@ from drf_util.views import BaseModelViewSet, BaseViewSet
 from rest_framework import filters
 from rest_framework.decorators import action
 from rest_framework.mixins import CreateModelMixin
+from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from internship.tasks.models import Task, TimeLog
+from internship.tasks.models import Task, TimeLog, Attachment
 from internship.tasks.permissions import CanStartTimeLog, CanStopTimeLog
 from internship.tasks.serializers import (
     CommentSerializer,
@@ -24,6 +31,7 @@ from internship.tasks.serializers import (
     ReadOnlyTaskSerializer,
     TimeLogSerializer,
     MonthTopTasksByTimeSerializer,
+    AttachmentSerializer
 )
 
 
@@ -154,4 +162,21 @@ class TimeLogViewSet(BaseViewSet, CreateModelMixin):
         instance.duration = timezone.now() - instance.start
         instance.save()
         serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
+
+class AttachmentViewSet(BaseViewSet, CreateModelMixin):
+    queryset = Attachment.objects.all()
+    serializer_class = AttachmentSerializer
+    parser_classes = (MultiPartParser,)
+    permission_classes = (IsAuthenticated,)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(
+            data=request.data
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save(
+            created_by=self.request.user
+        )
         return Response(serializer.data)

@@ -1,3 +1,8 @@
+__all__ = (
+    'CanStartTimeLog',
+    'CanStopTimeLog',
+)
+
 from rest_framework.permissions import BasePermission
 
 from internship.tasks.models import TimeLog
